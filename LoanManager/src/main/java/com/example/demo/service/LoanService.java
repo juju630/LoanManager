@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.composite.AccountComposite;
 import com.example.demo.composite.Approval_Composite;
 import com.example.demo.exceptions.EntityNotFoundException;
+import com.example.demo.exceptions.InternalErrorException;
 import com.example.demo.exceptions.UnavailableInformationsEntity;
 import com.example.demo.model.Account;
 import com.example.demo.model.Approval;
@@ -23,6 +24,10 @@ public class LoanService {
         LoanResponse response = new LoanResponse();
         response.setIdCompte(id);
         try{
+            if(somme <= 0){
+                throw new IllegalArgumentException();
+            }
+
             Account account = accountComposite.getOnes(id);
             response.setNom(account.getNomCompte());
             response.setIdCompte(account.getId());
@@ -31,7 +36,7 @@ public class LoanService {
             if(risk == null){
                 risk = "high";
             }
-            if(risk == "high" ||somme >= 10000 ){
+            if(risk.equals("high") ||somme >= 10000 ){
                 // On fait appel au Approval Manager pour savoir la décision manuel.
                 Approval resp = approval_composite.getOnes(account.getId());
                 if(resp == null){
@@ -55,7 +60,7 @@ public class LoanService {
             }
             if(somme < 10000){
                 // On accorde le prêt
-                if(risk == "low"){
+                if(risk.equals("low") ){
                     accountComposite.ajouterCompteSomme(account,somme);
                     response.setReponse(" Code correct ");
                     response.setCode(200);
@@ -64,13 +69,18 @@ public class LoanService {
                     return response;
                 }
             }
-        }catch (EntityNotFoundException e){
+        }catch (EntityNotFoundException | InternalErrorException e){
             response.setReponse("Error, Entity with this id {"+id+"} does not exist");
             response.setCode(404);
             return response;
         }catch (UnavailableInformationsEntity e) {
             e.printStackTrace();
             response.setReponse("Error, We cant evaluate this person Risk, looking for manual processing for Loan");
+            response.setCode(500);
+            return response;
+        }catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            response.setReponse("Error, Impossible de faire en emprunt avec une somme négative");
             response.setCode(500);
             return response;
         }catch (Exception e){
